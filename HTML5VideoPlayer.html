@@ -1,14 +1,17 @@
 <head>
 	<title>Video Player 1.1</title>
 	<style>
-		body{background:#000;color:#fff;font-family:Arial;font-size:13px}
+		body{background:#000;color:#fff;font-family:Arial;font-size:12px}
 		input,button{cursor:pointer}
-		#videoPlayer{border:5px solid #333}
-		#videoPlayer,#seekbar,#tblMenu{width:80%;}
-		table,td,th{border:1px solid #ccc;}
+		#video-player{border:3px solid orange;margin: 5 0 0 0;}
+		#video-player,#custom-seekbar,#tblMenu{width:80%;}
+		table,td,th{border:1px solid #ccc;padding:5px;font-size:12;}
 		#tblMenu td:nth-child(1){width:25%;}
 		#tblMenu{border-collapse:collapse;width:50%;}
 		input[type="file"]{background:#000;border:0 solid #ccc;color:#fff;width:100%;cursor:pointer}
+		#custom-seekbar{cursor:pointer;height:10px;margin-top:7px;outline:thin solid orange;overflow:hidden;position:relative}
+		#custom-seekbar span{background-color:orange;position:absolute;top:0;left:0;height:10px;width:0}
+		#video-time{margin:5 0 5 0;font-size:12px;display:block;font-weight:bold;color:orange;}
 	</style>
 	<link href="HTML5VideoPlayer.png" rel="icon" type="image/x-icon" />
 </head>
@@ -17,20 +20,17 @@
 	<center>
 		<table id="tblMenu" border="1">
 			<tr>
-				<td colspan="2"><center><b>HTML5 Offline Video Player 1.1</b></center></td>
-			</tr>
-			<tr>
 				<td>Select video file</td>
-				<td><input id="fileOpener" type="file" accept="video/*"/></td>
+				<td><input id="file-opener" type="file" accept=".mp4, .avi, .mkv"/></td>
 			</tr>
 			<tr>
 				<td>Select subtitle file</td>
-				<td><input id="subOpener" type="file" accept=".srt, .ass" /></td>
+				<td><input id="sub-opener" type="file" accept=".srt, .ass" /></td>
 			</tr>
 		</table>
-		<br />
-		<video id="videoPlayer"></video><br />
-		<input id="seekbar" type="range" min="0" max="100" value="0"/>
+		<video id="video-player"></video>
+		<span id="video-time">00:00:00 / 00:00:00</span>
+		<div id="custom-seekbar"><span></span></div>
 	</center>
 	<br />
 
@@ -53,10 +53,10 @@
 		}
 
 		function hideAllAddedSubtitles() {
-			var video = document.getElementById("videoPlayer");
-			var textTracksLength = video.textTracks.length;
+			let video = document.getElementById("video-player");
+			let textTracksLength = video.textTracks.length;
 			if (textTracksLength > 0) {
-				for (var i = 0; i < textTracksLength; i++) {
+				for (let i = 0; i < textTracksLength; i++) {
 					// hide all the previous subtitles
 					video.textTracks[i].mode = "hidden";
 				}
@@ -70,13 +70,13 @@
 		function readFile(evt) {
 			logText("Reading srt file...");
 
-			var file = this.files[0];
-			var reader = new FileReader();
+			let file = this.files[0];
+			let reader = new FileReader();
 
-			var line = "";
-			var video = document.getElementById("videoPlayer");
+			let line = "";
+			let video = document.getElementById("video-player");
 
-			var track = video.addTextTrack("subtitles", "", "");
+			let track = video.addTextTrack("subtitles", "", "");
 			track.mode = "showing";
 
 			reader.onload = function() {
@@ -84,17 +84,18 @@
 				//logText(text);
 				text = text.split('\n');
 				//logText(text);
+				let start, end;
 
-				for (var i = 0; i < text.length; i++) {
-					var t = text[i];
+				for (let i = 0; i < text.length; i++) {
+					let t = text[i];
 					//logText(t);
 					if (t.trim() != "") {
 
 						if (!isNaN(t)) {
 							// logText("id=" + t);
 						} else if (t.indexOf("--\>") != -1) {
-							var start = t.split("--\>")[0].trim();
-							var end = t.split("--\>")[1].trim();
+							start = t.split("--\>")[0].trim();
+							end = t.split("--\>")[1].trim();
 
 							start = parseTimestamp(start);
 							end = parseTimestamp(end);
@@ -108,7 +109,7 @@
 					} else {
 						line = line.trim();
 						//logText(line);
-						var cue;
+						let cue;
 						try {
 							cue = new VTTCue(start, end, line);
 						} catch (err) {
@@ -125,25 +126,37 @@
 		}
 
 		function playMovie(evt) {
-			var file = this.files[0];
-			var fileURL = URL.createObjectURL(file);
+			let file = this.files[0];
+			let fileURL = URL.createObjectURL(file);
 			console.log(fileURL);
 
-			var video = document.getElementById("videoPlayer");
+			let video = document.getElementById("video-player");
 			video.src = fileURL;
 			video.play();
 
 			hideAllAddedSubtitles();
-			document.getElementById("subOpener").value = "";
+			document.getElementById("sub-opener").value = "";
 		}
 
-		function init() {
-			logText("Initializing...");
-			document.getElementById("subOpener").addEventListener("change", readFile, false);
-			document.getElementById("fileOpener").addEventListener("change", playMovie, false);
+		function formatTime(totalSeconds) {
+			let hrs = Math.floor(totalSeconds / 3600);
+			totalSeconds %= 3600;
+			let mins = Math.floor(totalSeconds / 60);
+			let secs = Math.floor(totalSeconds % 60);
+			let h, m, s;
+			h = hrs < 10 ? "0" + hrs : hrs;
+			m = mins < 10 ? "0" + mins : mins;
+			s = secs < 10 ? "0" + secs : secs;
+			return h + ":" + m + ":" + s;
+		}
 
-			let video = document.getElementById("videoPlayer");
-			let seekbar = document.getElementById("seekbar");
+		function initialize() {
+			logText("Initializing...");
+			document.getElementById("sub-opener").addEventListener("change", readFile, false);
+			document.getElementById("file-opener").addEventListener("change", playMovie, false);
+
+			let video = document.getElementById("video-player");
+			let seekbar = document.getElementById("custom-seekbar");
 
 			document.onkeydown = function(e) {
 				let keycode = e.keyCode;
@@ -155,19 +168,25 @@
 				}
 			};
 
-			video.addEventListener("click", function()) { playPause(video); });
+			video.onclick = function() {playPause(video);};
+			video.ontimeupdate = function() {
+				let percentage = ( video.currentTime / video.duration ) * 100;
+				let customSeekbar = document.getElementById("custom-seekbar");
+				let seekbar = customSeekbar.getElementsByTagName("span")[0];
+				let videoTime = document.getElementById("video-time");
+				videoTime.innerHTML = formatTime(video.currentTime) + " / " + formatTime(video.duration);
+				seekbar.style.width = percentage + "%";
+			};
 
-			video.addEventListener("timeupdate", function() {
-			  seekbar.value = (video.currentTime / video.duration) * seekbar.max;
-			});
-
-			seekbar.addEventListener("click", function() {
-			  video.currentTime = video.duration * (seekbar.value / seekbar.max);
-			});
+			seekbar.onclick = function(e) {
+			    var left = (e.pageX - this.offsetLeft);
+			    var totalWidth = seekbar.offsetWidth;
+			    var percentage = ( left / totalWidth );
+			    var vidTime = video.duration * percentage;
+			    video.currentTime = vidTime;
+			};
 		}
 
-
-
-		init();
+		initialize();
 	</script>
 </body>
