@@ -1,0 +1,173 @@
+<head>
+	<title>Video Player 1.1</title>
+	<style>
+		body{background:#000;color:#fff;font-family:Arial;font-size:13px}
+		input,button{cursor:pointer}
+		#videoPlayer{border:5px solid #333}
+		#videoPlayer,#seekbar,#tblMenu{width:80%;}
+		table,td,th{border:1px solid #ccc;}
+		#tblMenu td:nth-child(1){width:25%;}
+		#tblMenu{border-collapse:collapse;width:50%;}
+		input[type="file"]{background:#000;border:0 solid #ccc;color:#fff;width:100%;cursor:pointer}
+	</style>
+	<link href="HTML5VideoPlayer.png" rel="icon" type="image/x-icon" />
+</head>
+
+<body>
+	<center>
+		<table id="tblMenu" border="1">
+			<tr>
+				<td colspan="2"><center><b>HTML5 Offline Video Player 1.1</b></center></td>
+			</tr>
+			<tr>
+				<td>Select video file</td>
+				<td><input id="fileOpener" type="file" accept="video/*"/></td>
+			</tr>
+			<tr>
+				<td>Select subtitle file</td>
+				<td><input id="subOpener" type="file" accept=".srt, .ass" /></td>
+			</tr>
+		</table>
+		<br />
+		<video id="videoPlayer"></video><br />
+		<input id="seekbar" type="range" min="0" max="100" value="0"/>
+	</center>
+	<br />
+
+	<script>
+		const SMALL = 480;
+		const MEDIUM = 640;
+		const LARGE = 720;
+		const LARGER = 1080;
+
+		function updateTime(video, x) { console.log("oldTime=" + video.currentTime); video.currentTime += x; console.log("newTime=" + video.currentTime); }
+		function playPause(video) { let currentTime = video.currentTime; logText(currentTime); if (video.paused) video.play(); else video.pause(); }
+		function resize(video, size) { video.width = size; }
+		function logText(s) { console.log(s); }
+
+		function parseTimestamp(t) {
+			let s = t.split("--\>")[0].trim();
+			s = s.split(":");
+			s[2] = s[2].replace(',', '.');
+			return s[0] * 3600.0 + s[1] * 60.0 + s[2] * 1.0;
+		}
+
+		function hideAllAddedSubtitles() {
+			var video = document.getElementById("videoPlayer");
+			var textTracksLength = video.textTracks.length;
+			if (textTracksLength > 0) {
+				for (var i = 0; i < textTracksLength; i++) {
+					// hide all the previous subtitles
+					video.textTracks[i].mode = "hidden";
+				}
+			}
+		}
+
+		/**
+		* This method will be triggered
+		* everytime a new subtitle is selected.
+		*/
+		function readFile(evt) {
+			logText("Reading srt file...");
+
+			var file = this.files[0];
+			var reader = new FileReader();
+
+			var line = "";
+			var video = document.getElementById("videoPlayer");
+
+			var track = video.addTextTrack("subtitles", "", "");
+			track.mode = "showing";
+
+			reader.onload = function() {
+				text = this.result;
+				//logText(text);
+				text = text.split('\n');
+				//logText(text);
+
+				for (var i = 0; i < text.length; i++) {
+					var t = text[i];
+					//logText(t);
+					if (t.trim() != "") {
+
+						if (!isNaN(t)) {
+							// logText("id=" + t);
+						} else if (t.indexOf("--\>") != -1) {
+							var start = t.split("--\>")[0].trim();
+							var end = t.split("--\>")[1].trim();
+
+							start = parseTimestamp(start);
+							end = parseTimestamp(end);
+
+							//logText("start=" + start);
+							//logText("end=" + end);
+						} else {
+							line += '\n' + t;
+						}
+
+					} else {
+						line = line.trim();
+						//logText(line);
+						var cue;
+						try {
+							cue = new VTTCue(start, end, line);
+						} catch (err) {
+							console.error(err + ": " + start + ", " + end + ", " + line);
+						}
+						track.addCue(cue);
+						line = "";
+					}
+				}
+
+				//logText(track);
+			}
+			reader.readAsText(file);
+		}
+
+		function playMovie(evt) {
+			var file = this.files[0];
+			var fileURL = URL.createObjectURL(file);
+			console.log(fileURL);
+
+			var video = document.getElementById("videoPlayer");
+			video.src = fileURL;
+			video.play();
+
+			hideAllAddedSubtitles();
+			document.getElementById("subOpener").value = "";
+		}
+
+		function init() {
+			logText("Initializing...");
+			document.getElementById("subOpener").addEventListener("change", readFile, false);
+			document.getElementById("fileOpener").addEventListener("change", playMovie, false);
+
+			let video = document.getElementById("videoPlayer");
+			let seekbar = document.getElementById("seekbar");
+
+			document.onkeydown = function(e) {
+				let keycode = e.keyCode;
+				switch (keycode) {
+					case 32: logText(e.cancelable); e.preventDefault(); playPause(video); break;
+					case 37: e.preventDefault(); updateTime(video, -5); break;
+					case 39: e.preventDefault(); updateTime(video, 5); break;
+					default:
+				}
+			};
+
+			video.addEventListener("click", function()) { playPause(video); });
+
+			video.addEventListener("timeupdate", function() {
+			  seekbar.value = (video.currentTime / video.duration) * seekbar.max;
+			});
+
+			seekbar.addEventListener("click", function() {
+			  video.currentTime = video.duration * (seekbar.value / seekbar.max);
+			});
+		}
+
+
+
+		init();
+	</script>
+</body>
